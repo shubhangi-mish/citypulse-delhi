@@ -170,6 +170,13 @@ def test_normal_accounts_no_demo_layer_organiser_books_performer_who_cancels_the
     assert detail["performer_gap"] is False
     assert {(p["display_name"], p["status"]) for p in detail["performers"]} == {("Starlight Normal", "cancelled"), ("Backup Normal", "confirmed")}
 
+    # a SECOND incident: the replacement cancels too. The Memory Agent retrieves the earlier solved case from the graph.
+    again = backup.post(f"/api/v1/events/{eid}/cancel-performance", json={"reason": "Double-booked"}).json()
+    lessons = again["memory"]["lessons"]
+    assert lessons and "Backup Normal" in lessons[0]["summary"] and lessons[0]["success"] is True
+    assert any(d["decision_type"] == "memory_retrieval" for d in graph.query(
+        "MATCH (d:AgentDecision {run_id:$r}) RETURN d.decision_type AS decision_type", {"r": again["run_id"]}))
+
 
 def _private_id(graph):
     return graph.one("MATCH (r:Resident {name:'Private Normal'}) RETURN r.resident_id AS id")["id"]

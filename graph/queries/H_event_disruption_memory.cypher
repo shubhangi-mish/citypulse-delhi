@@ -2,9 +2,9 @@
 // Earlier performer-cancellation cases (and what resolved them), reached through
 // AgentMemory-[:SUMMARIZES]->CoordinationCase-[:ADDRESSES]->Event. Used by the Memory Agent so that what worked
 // before (e.g. a same-discipline artist from a nearby neighbourhood) informs the next recommendation.
-// Params: $event_id
+// Params: $event_id (kept for callers; resolved cases from any event, including this one, are returned)
 MATCH (m:AgentMemory)-[:SUMMARIZES]->(c:CoordinationCase {case_type:'event_disruption'})-[:ADDRESSES]->(pe:Event)
-WHERE pe.event_id <> $event_id
+WHERE c.status = 'resolved'   // only cases that were actually solved teach the agents; includes earlier rounds on this same event
 OPTIONAL MATCH (a:CoordinationAction {action_type:'invite_replacement'})-[:PART_OF]->(c)
 OPTIONAL MATCH (pe)-[f:FEATURES {role:'replacement', status:'confirmed'}]->(rep:Resident)
 OPTIONAL MATCH (rep)-[:PRACTICES]->(pr:Profession)

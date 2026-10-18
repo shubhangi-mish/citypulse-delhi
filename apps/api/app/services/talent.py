@@ -95,6 +95,52 @@ def find_candidates(graph: GraphClient, event_id: str, radius_m: int = SEARCH_RA
             "query_id": query_id("replacement_candidates")}
 
 
+def bookable_artists(graph: GraphClient, event_id: str, q: str = "", limit: int = 10) -> list[dict]:
+    """Artists an organiser may add as performers: they opted in to fill-in/booked gigs (open_to_gigs) AND chose a
+    public, named profile. Nobody else is ever listed."""
+    rows = graph.query(
+        """
+        MATCH (e:Event {event_id:$eid})
+        MATCH (r:Resident)-[:PRACTICES]->(p:Profession {category:'artist'})
+        WHERE r.open_to_gigs = true AND r.public_visibility = 'public' AND r.display_name_opt_in = true
+          AND NOT (e)-[:FEATURES]->(r)
+          AND ($q = '' OR toLower(r.name) CONTAINS $q OR toLower(p.name) CONTAINS $q)
+        OPTIONAL MATCH (r)-[:LIVES_IN]->(n:Neighborhood)
+        RETURN r.resident_id AS resident_id, r.name AS name, p.name AS profession, n.name AS neighborhood
+        ORDER BY r.name ASC LIMIT $limit
+        """, {"eid": event_id, "q": q.strip().lower(), "limit": limit}, readonly=True)
+    return rows
+
+
+def add_performer(graph: GraphClient, db: Session, event_id: str, organizer_id: str, resident_id: str) -> dict:
+    ok = graph.one(
+        """
+        MATCH (:Resident {resident_id:$org})-[:SUBMITTED]->(e:Event {event_id:$eid})
+        MATCH (r:Resident {resident_id:$rid})
+        WHERE r.resident_id = $org
+           OR (r.open_to_gigs = true AND r.public_visibility = 'public' AND r.display_name_opt_in = true)
+        RETURN e.title AS title, r.name AS name, r.profession AS profession
+        """, {"org": organizer_id, "eid": event_id, "rid": resident_id}, readonly=True)
+    if not ok:
+        raise PermissionError("Only the organiser can add performers, and only artists who opted in to bookings.")
+    now = now_ms()
+    graph.query(
+        """
+        MATCH (e:Event {event_id:$eid}), (r:Resident {resident_id:$rid})
+        MERGE (e)-[f:FEATURES]->(r)
+        SET f.status = 'confirmed', f.role = 'performer', f.confirmed_at = $now
+        CREATE (d:Discussion {discussion_id:$did, body:$body, created_at:$now, visibility:'public', kind:'history',
+                              actor:'organizer'})-[:ABOUT]->(e)
+        """, {"eid": event_id, "rid": resident_id, "now": now, "did": new_id("dis"),
+              "body": f"{ok['name']}{' (' + ok['profession'] + ')' if ok['profession'] else ''} was added as a performer."})
+    if resident_id != organizer_id:
+        notifications.notify(db, [resident_id], kind="performer_added", entity_id=event_id,
+                             message=f"You were added as a performer at “{ok['title']}”. If your plans change, you can let the "
+                                     "organiser know from the event page.",
+                             dedupe_key=f"added:{event_id}:{resident_id}")
+    return {"event_id": event_id, "resident_id": resident_id}
+
+
 def invite(graph: GraphClient, db: Session, event_id: str, candidates: list[dict], action_id: str,
            message: str) -> int:
     """Real side effects: INVITED edges in the graph + in-app notifications to each candidate."""

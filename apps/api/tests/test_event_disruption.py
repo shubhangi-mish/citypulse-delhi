@@ -129,3 +129,47 @@ def test_only_the_organiser_controls_autopilot_and_declines_are_reported(graph):
     assert poet.post(f"/api/v1/events/{eid}/invitation", json={"accept": False}).status_code == 200
     kinds = [n["kind"] for n in org.get("/api/v1/profiles/me/notifications").json()["items"]]
     assert "agent_action" in kinds and "replacement_declined" in kinds
+
+
+def test_normal_accounts_no_demo_layer_organiser_books_performer_who_cancels_themselves(graph):
+    """Everything through ordinary endpoints with ordinary quick profiles: no seeding, no demo flag, no impersonation."""
+    start = int(time.time() * 1000) + 120 * HOUR
+    org, org_id = _person(graph, "Organiser Normal", "Teacher", "org-n@example.com", 28.6330, 77.2150, gigs=False)
+    star, star_id = _person(graph, "Starlight Normal", "Jazz singer", "star-n@example.com", 28.6310, 77.2180)
+    backup, backup_id = _person(graph, "Backup Normal", "Folk singer", "bak-n@example.com", 28.6360, 77.2120)
+    private, _ = _person(graph, "Private Normal", "Pianist", "prv-n@example.com", 28.6340, 77.2160)
+    private.patch("/api/v1/profiles/me", json={"public_visibility": "private"})       # not listed: private profile
+    off, _ = _person(graph, "Off Normal", "Violinist", "off-n@example.com", 28.6340, 77.2160, gigs=False)  # not opted in
+    graph.query("MATCH (r:Resident) WHERE r.open_to_gigs = true AND NOT r.name IN ['Starlight Normal', 'Backup Normal'] "
+                "SET r.open_to_gigs = false")  # isolate from artists created by other tests
+
+    eid = _event(org, "Fixture Normal Night", start)
+    # the organiser can search only artists who opted in and are public; strangers cannot search at all
+    names = [a["name"] for a in org.get(f"/api/v1/events/{eid}/performer-search", params={"q": "singer"}).json()["items"]]
+    assert set(names) == {"Starlight Normal", "Backup Normal"}
+    assert "Private Normal" not in names and "Off Normal" not in names
+    assert star.get(f"/api/v1/events/{eid}/performer-search").status_code == 403
+
+    # organiser books Starlight; she is notified and sees she is performing
+    assert org.post(f"/api/v1/events/{eid}/performers", json={"resident_id": star_id}).status_code == 201
+    assert any(n["kind"] == "performer_added" for n in star.get("/api/v1/profiles/me/notifications").json()["items"])
+    assert star.get(f"/api/v1/events/{eid}").json()["viewer_performance"] == "confirmed"
+    assert org.post(f"/api/v1/events/{eid}/performers", json={"resident_id": star_id}).status_code == 201  # idempotent
+    assert backup.post(f"/api/v1/events/{eid}/performers", json={"resident_id": backup_id}).status_code == 403
+    assert org.post(f"/api/v1/events/{eid}/performers", json={"resident_id": _private_id(graph)}).status_code == 403
+
+    # organiser turns autopilot on; the performer cancels for herself
+    org.post(f"/api/v1/events/{eid}/autopilot", json={"enabled": True})
+    run = star.post(f"/api/v1/events/{eid}/cancel-performance", json={"reason": "Lost my voice"}).json()
+    assert run["autopilot"] and [c["name"] for c in run["candidates"]["eligible"]] == ["Backup Normal"]
+    assert any(n["kind"] == "agent_action" for n in org.get("/api/v1/profiles/me/notifications").json()["items"])
+
+    # the invited replacement says yes
+    assert backup.post(f"/api/v1/events/{eid}/invitation", json={"accept": True}).json()["accepted"]
+    detail = org.get(f"/api/v1/events/{eid}").json()
+    assert detail["performer_gap"] is False
+    assert {(p["display_name"], p["status"]) for p in detail["performers"]} == {("Starlight Normal", "cancelled"), ("Backup Normal", "confirmed")}
+
+
+def _private_id(graph):
+    return graph.one("MATCH (r:Resident {name:'Private Normal'}) RETURN r.resident_id AS id")["id"]

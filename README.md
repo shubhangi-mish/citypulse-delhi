@@ -21,7 +21,21 @@ Built for **Graph Hacks: Context for AI Agents** (WeMakeDevs × FalkorDB, Oct 15
 - **Provenance everywhere.** Every node/edge carries a source and a verification status: `OFFICIAL_VERIFIED`, `SOURCE_VERIFIED`, `COMMUNITY_REPORTED`, `COMMUNITY_CORROBORATED`, `RULE_INFERRED` (deterministic graph/geo rule, with its `basis`), `AI_INFERRED`, `EXPIRED`.
 - Test fixtures exist only in isolated test graphs (`citypulse_test`, `citypulse_e2e`), never in the production graph.
 
-## Demo scenario: "the headliner cancels" (synthetic, clearly flagged)
+## The flow with ordinary accounts (no demo layer)
+
+Everything below uses normal quick profiles and normal buttons. Open a second browser (or a private window) per person.
+
+1. **Naina** signs up (*Continue as a resident*), then in **Profile → Work & availability** sets *what she does* (e.g. "Hindustani classical vocalist") and turns on *open to fill-in performances*. She also opts in to a public, named profile.
+2. **You** share an event (*Add → Share an event*). On the event page, **Organiser controls → Add a performer** lists only artists who opted in; add a performer (they are notified).
+3. Turn on **Let CityPulse agents act for me** if you want the agents to act without a coordinator.
+4. The performer opens the event and clicks **I can't make it anymore** (or you click **A booked performer has cancelled**). Attendees are notified; the agents run Query G, invite the best-matched free artists and notify you of everything they do.
+5. An invited artist opens the event and clicks **I can step in**. The gap closes, everyone is told, the case resolves and the Memory Agent records what worked.
+
+Covered by `test_normal_accounts_no_demo_layer_organiser_books_performer_who_cancels_themselves`.
+
+## Optional demo scenario: "the headliner cancels" (synthetic, clearly flagged)
+
+A shortcut for recordings when you can't juggle several browsers: it pre-creates fictional people so the story above can be driven from `/command/demo`. It uses the same features; nothing in it is special.
 
 `/command/demo` is a guided control room that shows people, professions, a complaint, an event and a solution connected in the graph, with agents taking **real actions**. It uses **seven fictional personas** (three artists, an organiser, two attendees, one double-booked comedian) in real OpenStreetMap neighbourhoods. Every node it creates carries `demo = true`, titles say "(demo scenario)", and **Remove demo data** deletes all of it.
 

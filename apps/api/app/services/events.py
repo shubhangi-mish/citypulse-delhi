@@ -193,6 +193,9 @@ def detail(graph: GraphClient, event_id: str, viewer_id: str | None) -> dict | N
         "MATCH (:Event {event_id:$id})-[i:INVITED]->(:Resident {resident_id:$rid}) RETURN i.status AS status",
         {"id": event_id, "rid": viewer_id or ""}, readonly=True) or {}).get("status")
     ev["viewer_invitation"] = inv
+    ev["viewer_performance"] = (graph.one(
+        "MATCH (:Event {event_id:$id})-[f:FEATURES]->(:Resident {resident_id:$rid}) RETURN f.status AS status",
+        {"id": event_id, "rid": viewer_id or ""}, readonly=True) or {}).get("status")
     cases = graph.query(
         """
         MATCH (c:CoordinationCase)-[:ADDRESSES]->(:Event {event_id:$id})

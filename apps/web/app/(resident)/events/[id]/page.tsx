@@ -53,6 +53,7 @@ interface EventDetail {
   agent_autopilot?: boolean;
   performers: { display_name: string | null; profession: string | null; status: string; role: string | null }[];
   viewer_invitation: string | null;
+  viewer_performance?: string | null;
   coordination: { case_id: string; title: string; status: string; actions: { action_type: string; description: string; status: string; outcome: string | null; proposed_by: string; authorised_by: string | null; note: string | null }[] }[];
 }
 
@@ -80,6 +81,22 @@ export default function EventPage() {
   const reportCancel = useMutation({
     mutationFn: () => api.post<any>(`/events/${id}/cancel-performance`, { reason: "Reported by the organiser" }),
     onSuccess: (r) => { toast.success(r.executed?.length ? `Your agents acted: ${r.executed.length} action(s) done on your behalf.` : "Agents analysed it and proposed actions for a coordinator."); refresh(); qc.invalidateQueries({ queryKey: ["notifications"] }); },
+    onError,
+  });
+  const [performerQ, setPerformerQ] = useState("");
+  const artists = useQuery({
+    queryKey: ["performer-search", id, performerQ],
+    queryFn: () => api.get<{ items: { resident_id: string; name: string; profession: string; neighborhood: string | null }[] }>(`/events/${id}/performer-search`, { q: performerQ }),
+    enabled: !!q.data?.is_organizer,
+  });
+  const addPerformer = useMutation({
+    mutationFn: (rid: string) => api.post(`/events/${id}/performers`, { resident_id: rid }),
+    onSuccess: () => { toast.success("Performer added — they've been notified."); refresh(); qc.invalidateQueries({ queryKey: ["performer-search", id] }); },
+    onError,
+  });
+  const cantMakeIt = useMutation({
+    mutationFn: () => api.post<any>(`/events/${id}/cancel-performance`, { reason: "The performer can no longer make it" }),
+    onSuccess: () => { toast.success("The organiser and attendees have been told, and CityPulse is looking for a replacement."); refresh(); qc.invalidateQueries({ queryKey: ["notifications"] }); },
     onError,
   });
   const invitation = useMutation({
@@ -146,6 +163,29 @@ export default function EventPage() {
             </div>
           </dl>
           <p className="mt-6 whitespace-pre-line text-[16px] leading-relaxed">{e.description}</p>
+          {e.viewer_performance === "confirmed" && !e.is_organizer && (
+            <div className="mt-6 rounded-xl border border-violet/30 bg-violet-50/60 p-5">
+              <p className="flex items-center gap-2 text-[15px] font-semibold text-violet"><Mic2 className="size-5" /> You're performing at this event</p>
+              <p className="mt-1 text-[13.5px] text-slate">If your plans change, tell everyone as early as you can: attendees are notified and nearby artists are invited to step in.</p>
+              <Button className="mt-3" variant="outline" loading={cantMakeIt.isPending} onClick={() => confirm("Tell the organiser and attendees that you can't perform?") && cantMakeIt.mutate()}>I can't make it anymore</Button>
+            </div>
+          )}
+          {e.is_organizer && (
+            <div className="mt-6 rounded-xl border border-line bg-white p-5">
+              <p className="text-[15px] font-semibold">Add a performer</p>
+              <p className="mt-0.5 text-[12.5px] text-slate">Only artists who turned on "open to fill-in performances" and chose a public profile are listed.</p>
+              <input value={performerQ} onChange={(ev) => setPerformerQ(ev.target.value)} placeholder="Search by name or what they do (e.g. singer, painter)" className="mt-3 h-10 w-full rounded-[10px] border border-line-strong px-3 text-[14px] focus:border-teal focus:outline-none" />
+              <ul className="mt-3 space-y-2">
+                {artists.data?.items.map((a) => (
+                  <li key={a.resident_id} className="flex items-center justify-between gap-3 rounded-lg bg-paper-2 px-3 py-2">
+                    <span className="text-[13.5px]"><b className="font-medium">{a.name}</b> <span className="text-slate">· {a.profession}{a.neighborhood ? ` · ${a.neighborhood}` : ""}</span></span>
+                    <Button size="sm" variant="accent" loading={addPerformer.isPending && addPerformer.variables === a.resident_id} onClick={() => addPerformer.mutate(a.resident_id)}>Add</Button>
+                  </li>
+                ))}
+                {artists.data && artists.data.items.length === 0 && <li className="text-[13px] text-slate">No matching artists yet. They appear here once they set a profession and opt in on their Profile.</li>}
+              </ul>
+            </div>
+          )}
           {e.is_organizer && e.performers.length > 0 && (
             <div className="mt-6 rounded-xl border border-violet/30 bg-violet-50/60 p-5">
               <p className="flex items-center gap-2 text-[15px] font-semibold text-violet"><Bot className="size-5" /> Organiser controls</p>

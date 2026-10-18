@@ -74,6 +74,27 @@ class Autopilot(BaseModel):
     enabled: bool
 
 
+class AddPerformer(BaseModel):
+    resident_id: str
+
+
+@router.get("/{event_id}/performer-search")
+def performer_search(event_id: str, q: str = "", resident_id: str = Depends(require_resident),
+                     graph: GraphClient = Depends(graph_dep)):
+    if events.organizer_of(graph, event_id) != resident_id:
+        raise HTTPException(403, detail={"error": "forbidden", "message": "Only the organiser can add performers."})
+    return {"items": talent.bookable_artists(graph, event_id, q)}
+
+
+@router.post("/{event_id}/performers", status_code=201)
+def add_performer(event_id: str, body: AddPerformer, resident_id: str = Depends(require_resident),
+                  db: Session = Depends(get_db), graph: GraphClient = Depends(graph_dep)):
+    try:
+        return talent.add_performer(graph, db, event_id, resident_id, body.resident_id)
+    except PermissionError as exc:
+        raise HTTPException(403, detail={"error": "forbidden", "message": str(exc)})
+
+
 @router.post("/{event_id}/autopilot")
 def set_autopilot(event_id: str, body: Autopilot, resident_id: str = Depends(require_resident),
                   graph: GraphClient = Depends(graph_dep)):

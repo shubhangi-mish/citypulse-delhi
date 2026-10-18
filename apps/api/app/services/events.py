@@ -151,6 +151,8 @@ def detail(graph: GraphClient, event_id: str, viewer_id: str | None) -> dict | N
     ev["participant_roles"] = {role: sum(1 for p in parts if p["role"] == role)
                                for role in ("interested", "going", "volunteer")}
     ev["named_participants"] = [n for n in (public_props("Resident", p["r"])["display_name"] for p in parts) if n]
+    ev["attendees"] = [{"name": pub["display_name"], "profession": pub["profession"], "role": p["role"]}
+                       for p in parts for pub in [public_props("Resident", p["r"])] if pub["display_name"]]
     mine = next((p for p in parts if p["me"]), None)
     ev["viewer"] = {"participating": bool(mine), "role": mine["role"] if mine else None}
     ev["warnings"] = graph.query(

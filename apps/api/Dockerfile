@@ -10,4 +10,4 @@ COPY data/manifests ./data_manifests
 RUN useradd -r citypulse && mkdir -p /app/data/cache && chown -R citypulse /app/data
 USER citypulse
 EXPOSE 8000
-CMD ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+CMD ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--timeout-keep-alive", "75"]

@@ -21,7 +21,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Notification
+from app.db.models import Notification, ResidentSession
 from app.graph.client import GraphClient
 from app.graph.model import now_ms
 from app.services import events as ev_svc
@@ -134,6 +134,7 @@ def remove(graph: GraphClient, db: Session) -> dict:
     graph.query("MATCH (rd:Road) WHERE rd.created_at IS NOT NULL AND NOT ()-[:ON_ROAD|ACCESSIBLE_VIA]->(rd) DETACH DELETE rd")
     if ids:
         db.execute(delete(Notification).where(Notification.resident_id.in_(ids)))
+        db.execute(delete(ResidentSession).where(ResidentSession.resident_id.in_(ids)))
         db.commit()
     return {"removed_personas": len(ids)}
 

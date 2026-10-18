@@ -20,6 +20,7 @@ export interface Profile {
   discovery_opt_in: boolean;
   area_updates_opt_in: boolean;
   profession?: string | null;
+  demo?: boolean | null;
   open_to_gigs?: boolean | null;
   neighborhood_id: string | null;
   neighborhood_name: string | null;

@@ -43,6 +43,12 @@ export function ResidentShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-dvh pb-20 md:pb-0">
+      {profile?.demo && (
+        <div className="sticky top-0 z-50 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 bg-amber px-4 py-2 text-[13px] font-medium text-white">
+          <span>You're viewing CityPulse as <b>{profile.name}</b>{profile.profession ? ` (${profile.profession})` : ""} — a synthetic demo persona.</span>
+          <BackToMe />
+        </div>
+      )}
       <header className="sticky top-0 z-40 border-b border-line/80 bg-paper/85 backdrop-blur-md">
         <div className="container-page flex h-16 items-center gap-6">
           <Link href="/" aria-label="CityPulse Delhi home">
@@ -139,6 +145,23 @@ export function ResidentShell({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
     </div>
+  );
+}
+
+function BackToMe() {
+  const qc = useQueryClient();
+  const router = useRouter();
+  return (
+    <button
+      className="rounded-full bg-white/20 px-3 py-0.5 hover:bg-white/30"
+      onClick={async () => {
+        await api.post("/demo/restore-session");
+        await qc.invalidateQueries();
+        router.push("/command/demo");
+      }}
+    >
+      Back to my account
+    </button>
   );
 }
 

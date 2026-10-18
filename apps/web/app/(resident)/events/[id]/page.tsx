@@ -44,6 +44,7 @@ interface EventDetail {
   participant_count: number;
   participant_roles: Record<string, number>;
   named_participants: string[];
+  attendees?: { name: string; profession: string | null; role: string | null }[];
   viewer: { participating: boolean; role: string | null };
   warnings: { warning_id: string; title: string; severity: string; issuing_authority: string; via: string; basis: string }[];
   nearby_issues: { issue_id: string; title: string; category: string; status: string; distance_m: number }[];
@@ -259,7 +260,17 @@ export default function EventPage() {
             <p className="text-[12.5px] text-slate">
               {pluralize(e.participant_roles.going ?? 0, "going", "going")} · {e.participant_roles.interested ?? 0} interested · {pluralize(e.participant_roles.volunteer ?? 0, "volunteer")}
             </p>
-            {!!e.named_participants.length && <p className="mt-2 text-[12.5px] text-slate">Including {e.named_participants.slice(0, 4).join(", ")}</p>}
+            {!!e.attendees?.length && (
+              <ul className="mt-3 space-y-2 border-t border-line pt-3">
+                {e.attendees.map((a, k) => (
+                  <li key={k} className="flex items-start justify-between gap-2 text-[13px]">
+                    <span><b className="font-medium">{a.name}</b>{a.profession && <span className="block text-[12px] text-slate">{a.profession}</span>}</span>
+                    {a.role && <Badge tone={a.role === "volunteer" ? "teal" : "neutral"}>{a.role}</Badge>}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {e.participant_count > (e.attendees?.length ?? 0) && <p className="mt-2 text-[12px] text-slate">+{e.participant_count - (e.attendees?.length ?? 0)} more with private profiles</p>}
             {e.is_organizer && e.organizer_contact && <p className="mt-3 border-t border-line pt-3 text-[12px] text-slate">Your contact (private): {e.organizer_contact}</p>}
           </Card>
           <Card className="p-5">

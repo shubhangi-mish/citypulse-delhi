@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, Bot, Brain, Check, CircleDashed, Flag, Megaphone, Mic2, Play, RotateCcw, Trash2, UserX, X } from "lucide-react";
+import { Bell, Bot, Brain, Check, CircleDashed, Eye, Flag, Megaphone, Mic2, Play, RotateCcw, Trash2, UserX, X } from "lucide-react";
 import Link from "next/link";
 import { toast } from "@/components/toaster";
 import { Button } from "@/components/ui/button";
@@ -62,6 +62,14 @@ export default function DemoPage() {
 
   const seed = useMutation({ mutationFn: () => api.post("/demo/seed"), onSuccess: () => { toast.success("Scenario loaded: 7 synthetic personas, 2 events."); refresh(); }, onError });
   const reset = useMutation({ mutationFn: () => api.post("/demo/reset"), onSuccess: () => { toast.info("Scenario reset."); refresh(); }, onError });
+  const viewAs = useMutation({
+    mutationFn: (key: string) => api.post<{ event_id: string | null }>("/demo/impersonate", { persona_key: key }),
+    onSuccess: (r) => {
+      qc.invalidateQueries();
+      window.location.href = r.event_id ? `/events/${r.event_id}` : "/";
+    },
+    onError,
+  });
   const remove = useMutation({ mutationFn: () => api.del("/demo"), onSuccess: () => { toast.info("All demo data removed."); refresh(); }, onError });
   const cancel = useMutation({
     mutationFn: () => api.post<any>("/demo/cancel-artist"),
@@ -214,6 +222,9 @@ export default function DemoPage() {
                           <Badge tone={st.tone as any}>{st.text}</Badge>
                         </div>
                       </div>
+                      <Button size="sm" variant="outline" className="mt-2.5 w-full" loading={viewAs.isPending && viewAs.variables === p.key} onClick={() => viewAs.mutate(p.key)}>
+                        <Eye /> View CityPulse as {p.name.split(" ")[0] === "Dr." ? "Dr. " + p.name.split(" ")[1] : p.name.split(" ")[0]}
+                      </Button>
                       {p.inbox.length > 0 && (
                         <ul className="mt-2.5 space-y-1.5 border-t border-line pt-2.5">
                           {p.inbox.slice(0, 2).map((n, i) => (

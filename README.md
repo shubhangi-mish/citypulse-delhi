@@ -171,7 +171,7 @@ docker compose up -d falkordb postgres          # FalkorDB :6379, Postgres :5543
 
 cd apps/api
 uv run python -m app.ingestion.run all          # OSM (cached in data/cache) + SACHET
-uv run uvicorn app.main:app --port 8000
+uv run uvicorn app.main:app --port 8000 --timeout-keep-alive 75   # keep-alive > the web proxy idle time
 
 cd apps/web && npm install && npm run dev       # http://localhost:3100
 ```

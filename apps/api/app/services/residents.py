@@ -9,7 +9,7 @@ OWNER_PROJECTION = """
   r.resident_id AS resident_id, r.name AS name, r.email AS email, r.address AS address,
   r.latitude AS latitude, r.longitude AS longitude, r.public_visibility AS public_visibility,
   r.display_name_opt_in AS display_name_opt_in, r.discovery_opt_in AS discovery_opt_in,
-  r.profession AS profession, r.open_to_gigs AS open_to_gigs,
+  r.profession AS profession, r.open_to_gigs AS open_to_gigs, r.demo AS demo,
   r.area_updates_opt_in AS area_updates_opt_in, r.created_at AS created_at, r.updated_at AS updated_at
 """
 

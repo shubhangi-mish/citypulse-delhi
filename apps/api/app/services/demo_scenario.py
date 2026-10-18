@@ -50,6 +50,12 @@ def _nbh(graph: GraphClient, name: str) -> dict:
     return row
 
 
+def _real_resident(graph: GraphClient) -> dict | None:
+    """The project owner's own (non-demo) profile: the earliest real resident in the graph."""
+    return graph.one("MATCH (r:Resident) WHERE coalesce(r.demo, false) = false "
+                     "RETURN r.resident_id AS id, r.name AS name ORDER BY r.created_at ASC LIMIT 1", readonly=True)
+
+
 def _persona_ids(graph: GraphClient) -> dict[str, str]:
     rows = graph.query("MATCH (r:Resident {demo:true}) RETURN r.demo_key AS k, r.resident_id AS id", readonly=True)
     return {r["k"]: r["id"] for r in rows}
@@ -61,8 +67,9 @@ def _main_event(graph: GraphClient) -> dict | None:
 
 def seed(graph: GraphClient) -> dict:
     ids = _persona_ids(graph)
+    real = _real_resident(graph)
     for p in PERSONAS:
-        if p["key"] in ids:
+        if p["key"] in ids or (p["key"] == "meher" and real):  # a real profile organises instead of Meher
             continue
         n = _nbh(graph, p["nbh"])
         created = residents.create(
@@ -83,12 +90,13 @@ def seed(graph: GraphClient) -> dict:
         start_dt = (datetime.now(IST) + timedelta(days=3)).replace(hour=18, minute=30, second=0, microsecond=0)
         start = int(start_dt.timestamp() * 1000)
         main = ev_svc.create(
-            graph, ids["meher"], title="Sunset Music Evening — Hauz Khas (demo scenario)",
+            graph, real["id"] if real else ids["meher"], title="Sunset Music Evening — Hauz Khas (demo scenario)",
             description="An open-air neighbourhood music evening to raise funds for a community library, headlined by a "
                         "local singer-songwriter." + DEMO_NOTE,
             category="concert", start_time=start, end_time=start + 3 * 3600_000, venue_name="Community courtyard, Hauz Khas",
             venue_address="Hauz Khas, New Delhi (demo)", latitude=hk["lat"], longitude=hk["lng"],
-            organizer_name="Meher Chawla (demo persona)", organizer_contact="demo@demo.citypulse.invalid",
+            organizer_name=real["name"] if real else "Meher Chawla (demo persona)",
+            organizer_contact="contact on file" if real else "demo@demo.citypulse.invalid",
             organization_name=None, is_free=True, setting="outdoor", accessibility=None, registration_url=None,
             attestation=True)["event_id"]
         graph.query(
@@ -127,11 +135,16 @@ def seed(graph: GraphClient) -> dict:
 
 def remove(graph: GraphClient, db: Session) -> dict:
     ids = list(_persona_ids(graph).values())
+    demo_entities = [r["id"] for r in graph.query(
+        "MATCH (x) WHERE x.demo = true AND (x:Event OR x:Issue) RETURN coalesce(x.event_id, x.issue_id) AS id", readonly=True)]
     graph.query("MATCH (d:Discussion)-[:ABOUT]->(x) WHERE x.demo = true DETACH DELETE d")
     graph.query("MATCH (m:AgentMemory)-[:SUMMARIZES]->(c:CoordinationCase) WHERE c.demo = true DETACH DELETE m")
     graph.query("MATCH (n) WHERE n.demo = true DETACH DELETE n")
     graph.query("MATCH (p:Profession) WHERE NOT ()-[:PRACTICES]->(p) DETACH DELETE p")
     graph.query("MATCH (rd:Road) WHERE rd.created_at IS NOT NULL AND NOT ()-[:ON_ROAD|ACCESSIBLE_VIA]->(rd) DETACH DELETE rd")
+    if demo_entities:  # also clear notifications the real organiser received about demo events/complaints
+        db.execute(delete(Notification).where(Notification.entity_id.in_(demo_entities)))
+        db.commit()
     if ids:
         db.execute(delete(Notification).where(Notification.resident_id.in_(ids)))
         db.execute(delete(ResidentSession).where(ResidentSession.resident_id.in_(ids)))
@@ -247,8 +260,16 @@ def state(graph: GraphClient, db: Session) -> dict:
                          "RETURN m.memory_id AS memory_id, m.summary AS summary ORDER BY m.created_at DESC", readonly=True)
     cancelled = bool(event and any(p["status"] == "cancelled" for p in event["performers"]))
     resolved = bool(event and any(p["status"] == "confirmed" and p["role"] == "replacement" for p in event["performers"]))
+    org = graph.one("MATCH (o:Resident)-[:SUBMITTED]->(:Event {demo_key:'main'}) "
+                    "RETURN o.resident_id AS resident_id, o.name AS name, coalesce(o.demo, false) AS demo", readonly=True)
+    organizer = None
+    if org:
+        mine = db.scalars(select(Notification).where(Notification.resident_id == org["resident_id"])
+                          .order_by(Notification.created_at.desc())).all()
+        organizer = {"name": org["name"], "is_real": not org["demo"], "unread": sum(1 for n in mine if n.read_at is None),
+                     "inbox": [{"kind": n.kind, "message": n.message} for n in mine[:4]]}
     return {
-        "seeded": True, "personas": people, "event": event, "decisions": runs, "case": case, "complaint": complaint,
+        "seeded": True, "organizer": organizer, "personas": people, "event": event, "decisions": runs, "case": case, "complaint": complaint,
         "memory": memory, "steps": {"seeded": True, "cancelled": cancelled, "agents_acted": bool(case),
                                     "complaint": bool(complaint), "resolved": resolved},
     }

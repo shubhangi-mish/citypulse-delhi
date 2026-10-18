@@ -167,6 +167,12 @@ def respond(graph: GraphClient, db: Session, event_id: str, resident_id: str, ac
                     "SET i.status='declined', i.responded_at=$now", {"eid": event_id, "rid": resident_id, "now": now})
         pending = graph.one("MATCH (:Event {event_id:$eid})-[i:INVITED {status:'pending'}]->() RETURN count(i) AS c",
                             {"eid": event_id}, readonly=True)["c"]
+        org = (_event_row(graph, event_id) or {}).get("organizer_id")
+        if org:
+            notifications.notify(db, [org], kind="replacement_declined", entity_id=event_id,
+                                 message=f"{who} can't step in for “{inv['title']}”. "
+                                         + ("Your agents are looking for other artists." if pending == 0 else f"{pending} invitation(s) still pending."),
+                                 dedupe_key=f"declined:{event_id}:{resident_id}")
         return {"accepted": False, "pending_left": pending, "who": who}
 
     graph.query(

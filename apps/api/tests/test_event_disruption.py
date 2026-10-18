@@ -65,6 +65,8 @@ def test_cancellation_agents_invite_ranked_artists_and_close_the_loop(graph):
     invited = graph.query("MATCH (:Event {event_id:$e})-[i:INVITED]->(r:Resident) RETURN r.name AS n, i.status AS s",
                           {"e": eid})
     assert {i["n"] for i in invited} == {"Vocalist Fixture", "Painter Fixture"} and {i["s"] for i in invited} == {"pending"}
+    org_kinds = [n["kind"] for n in org.get("/api/v1/profiles/me/notifications").json()["items"]]
+    assert "agent_action" in org_kinds and "performer_cancelled" not in org_kinds or "agent_action" in org_kinds  # organiser is told what agents did for them
     assert any(n["kind"] == "replacement_invite" for n in vocalist.get("/api/v1/profiles/me/notifications").json()["items"])
     assert not any(n["kind"] == "replacement_invite" for n in comedian.get("/api/v1/profiles/me/notifications").json()["items"])
     kinds = [n["kind"] for n in dev.get("/api/v1/profiles/me/notifications").json()["items"]]
@@ -109,3 +111,21 @@ def test_without_autopilot_agents_only_propose(graph):
     proposed = graph.query("MATCH (a:CoordinationAction {status:'proposed'})-[:PART_OF]->(:CoordinationCase)-[:ADDRESSES]->"
                            "(:Event {event_id:$e}) RETURN a.action_type AS t", {"e": eid})
     assert "invite_replacement" in {p["t"] for p in proposed}      # waits for a coordinator
+
+
+def test_only_the_organiser_controls_autopilot_and_declines_are_reported(graph):
+    start = int(time.time() * 1000) + 96 * HOUR
+    org, _ = _person(graph, "Org Three", "Teacher", "org-f@example.com", 28.6330, 77.2150, gigs=False)
+    other, _ = _person(graph, "Other Three", "Teacher", "oth-f@example.com", 28.6335, 77.2155, gigs=False)
+    singer, singer_id = _person(graph, "Singer Three", "Folk singer", "sing-f@example.com", 28.6310, 77.2180, gigs=False)
+    poet, _ = _person(graph, "Poet Three", "Poet", "poet-f@example.com", 28.6400, 77.2100)
+    graph.query("MATCH (r:Resident) WHERE r.open_to_gigs = true AND r.name <> 'Poet Three' SET r.open_to_gigs = false")  # isolate from other tests' artists
+    eid = _event(org, "Fixture Autopilot Night", start)
+    _feature(graph, eid, singer_id)
+    assert other.post(f"/api/v1/events/{eid}/autopilot", json={"enabled": True}).status_code == 403
+    assert org.post(f"/api/v1/events/{eid}/autopilot", json={"enabled": True}).json() == {"agent_autopilot": True}
+    run = org.post(f"/api/v1/events/{eid}/cancel-performance", json={"reason": "Ill"}).json()
+    assert run["autopilot"] and run["executed"]
+    assert poet.post(f"/api/v1/events/{eid}/invitation", json={"accept": False}).status_code == 200
+    kinds = [n["kind"] for n in org.get("/api/v1/profiles/me/notifications").json()["items"]]
+    assert "agent_action" in kinds and "replacement_declined" in kinds

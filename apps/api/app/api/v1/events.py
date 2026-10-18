@@ -70,6 +70,21 @@ class InvitationResponse(BaseModel):
     accept: bool
 
 
+class Autopilot(BaseModel):
+    enabled: bool
+
+
+@router.post("/{event_id}/autopilot")
+def set_autopilot(event_id: str, body: Autopilot, resident_id: str = Depends(require_resident),
+                  graph: GraphClient = Depends(graph_dep)):
+    """Organiser-only. When on, CityPulse agents may act for you (e.g. invite replacement performers) without waiting
+    for a coordinator; every such action is recorded as an AUTHORIZED edge from you."""
+    if events.organizer_of(graph, event_id) != resident_id:
+        raise HTTPException(403, detail={"error": "forbidden", "message": "Only the organiser can change this."})
+    events.set_autopilot(graph, event_id, body.enabled)
+    return {"agent_autopilot": body.enabled}
+
+
 @router.post("/{event_id}/cancel-performance")
 def cancel_performance(event_id: str, body: CancelPerformance, resident_id: str = Depends(require_resident),
                        db: Session = Depends(get_db), graph: GraphClient = Depends(graph_dep)):

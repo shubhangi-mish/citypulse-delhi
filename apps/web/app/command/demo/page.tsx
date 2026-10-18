@@ -26,6 +26,7 @@ interface Persona {
 interface Candidate { name: string; profession: string; neighborhood: string; distance: string; score?: number; reasons?: string[]; reason?: string }
 interface State {
   seeded: boolean;
+  organizer?: { name: string; is_real: boolean; unread: number; inbox: { kind: string; message: string }[] } | null;
   personas: Persona[];
   steps: { seeded?: boolean; cancelled?: boolean; agents_acted?: boolean; complaint?: boolean; resolved?: boolean };
   event?: {
@@ -206,6 +207,21 @@ export default function DemoPage() {
           </div>
 
           <div className="space-y-6">
+            {d.organizer?.is_real && (
+              <Panel title="You">
+                <p className="text-[14px]"><b className="font-medium">{d.organizer.name}</b> <Badge tone="teal">Organiser · autopilot on</Badge></p>
+                <p className="mt-1.5 text-[13px] leading-relaxed text-slate">This is <b>your own account</b>. Open CityPulse normally (not “View as”): the event is yours, the agents act for you, and your notification bell fills up as things happen.</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {d.event && <Button size="sm" variant="accent" asChild><Link href={`/events/${d.event.event_id}`} target="_blank">Open my event</Link></Button>}
+                  <Button size="sm" variant="outline" asChild><Link href="/my-activity" target="_blank">My activity</Link></Button>
+                </div>
+                {d.organizer.inbox.length > 0 && (
+                  <ul className="mt-3 space-y-1.5 border-t border-line pt-3">
+                    {d.organizer.inbox.map((n, i) => <li key={i} className="flex gap-1.5 text-[12px] leading-snug text-slate"><Bell className="mt-0.5 size-3 shrink-0 text-teal" />{n.message}</li>)}
+                  </ul>
+                )}
+              </Panel>
+            )}
             <Panel title="People">
               <ul className="space-y-3">
                 {d.personas.map((p) => {

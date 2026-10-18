@@ -224,6 +224,11 @@ def participate(graph: GraphClient, event_id: str, resident_id: str, role: str |
         """, {"id": event_id, "rid": resident_id, "role": role, "now": now_ms()})
 
 
+def set_autopilot(graph: GraphClient, event_id: str, enabled: bool) -> None:
+    graph.query("MATCH (e:Event {event_id:$id}) SET e.agent_autopilot = $on, e.updated_at = $now",
+                {"id": event_id, "on": enabled, "now": now_ms()})
+
+
 def organizer_of(graph: GraphClient, event_id: str) -> str | None:
     row = graph.one("MATCH (r:Resident)-[:SUBMITTED]->(e:Event {event_id:$id}) RETURN r.resident_id AS rid",
                     {"id": event_id}, readonly=True)

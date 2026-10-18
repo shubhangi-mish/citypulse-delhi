@@ -18,7 +18,7 @@ export function useNotifications(enabled: boolean) {
     queryKey: ["notifications"],
     queryFn: () => api.get<{ items: { id: number; kind: string; entity_id: string; message: string; created_at: string; read: boolean }[]; unread: number }>("/profiles/me/notifications"),
     enabled,
-    refetchInterval: 30_000,
+    refetchInterval: 8_000,
   });
 }
 

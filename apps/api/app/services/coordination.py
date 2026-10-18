@@ -343,6 +343,12 @@ def auto_execute(graph: GraphClient, db: Session, action_id: str, authorizer_id:
     result = execute(graph, db, action_id, row["case_id"], row["a"], "CityPulse agent (organiser-authorised)")
     graph.query("MATCH (a:CoordinationAction {action_id:$id}) SET a.status = 'executed', a.executed_at = $now,"
                 " a.execution_note = $note", {"id": action_id, "now": now_ms(), "note": result})
+    ev = graph.one("MATCH (:CoordinationAction {action_id:$a})-[:PART_OF]->(:CoordinationCase)-[:ADDRESSES]->(e:Event) "
+                   "RETURN e.event_id AS id", {"a": action_id}, readonly=True)
+    if authorizer_id and ev:
+        notifications.notify(db, [authorizer_id], kind="agent_action", entity_id=ev["id"],
+                             message=f"Your CityPulse agents acted for you: {row['a'].get('description', '')} — {result}"[:500],
+                             dedupe_key=f"agent:{action_id}")
     return {"action_id": action_id, "status": "executed", "execution": result}
 
 

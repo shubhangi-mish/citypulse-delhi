@@ -31,6 +31,8 @@ Built for **Graph Hacks: Context for AI Agents** (WeMakeDevs × FalkorDB, Oct 15
 4. **An attendee complains**; the complaint is linked to the event (`ABOUT_EVENT`) and attached to the running case.
 5. **An artist steps in** ("I can step in" on the event page, available to any invited real user): `FEATURES {role:'replacement'}`, gap closed, everyone notified, case resolved, complaint closed, and the **Memory Agent** stores what worked. **Query H** retrieves it the next time a performer cancels.
 
+**You are the organiser.** If a real (non-demo) profile exists, it becomes the organiser of the demo event, so the whole story plays out in your own account: you see the event, the *Organiser controls* (agent autopilot switch and "A booked performer has cancelled"), and your notification bell fills up as the agents act for you. Personas can still be viewed with *View CityPulse as…* in the control room.
+
 Real residents can use the same flow: Profile → *Work & availability* (profession + "open to fill-in performances").
 
 ## Why FalkorDB is essential

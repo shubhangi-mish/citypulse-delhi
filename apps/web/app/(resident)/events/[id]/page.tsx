@@ -9,7 +9,7 @@ import { useState } from "react";
 import { ProvenanceBadge, StatusBadge } from "@/components/badges";
 import { toast } from "@/components/toaster";
 import { Button } from "@/components/ui/button";
-import { Badge, Card, Textarea } from "@/components/ui/primitives";
+import { Badge, Card, Switch, Textarea } from "@/components/ui/primitives";
 import { ErrorState, ListSkeleton } from "@/components/ui/states";
 import { useRequireProfile } from "@/features/issues/use-issue-actions";
 import { api, ApiError } from "@/lib/api";
@@ -50,6 +50,7 @@ interface EventDetail {
   nearby_issues: { issue_id: string; title: string; category: string; status: string; distance_m: number }[];
   updates: { discussion_id: string; body: string; created_at: number; kind: string; author: string | null; actor?: string | null }[];
   performer_gap?: boolean;
+  agent_autopilot?: boolean;
   performers: { display_name: string | null; profession: string | null; status: string; role: string | null }[];
   viewer_invitation: string | null;
   coordination: { case_id: string; title: string; status: string; actions: { action_type: string; description: string; status: string; outcome: string | null; proposed_by: string; authorised_by: string | null; note: string | null }[] }[];
@@ -59,7 +60,7 @@ export default function EventPage() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
   const require = useRequireProfile();
-  const q = useQuery({ queryKey: ["event", id], queryFn: () => api.get<EventDetail>(`/events/${id}`) });
+  const q = useQuery({ queryKey: ["event", id], queryFn: () => api.get<EventDetail>(`/events/${id}`), refetchInterval: 8000 });
   const [text, setText] = useState("");
   const refresh = () => qc.invalidateQueries({ queryKey: ["event", id] });
   const onError = (e: unknown) => toast.error(e instanceof ApiError ? e.message : "Something went wrong.");
@@ -69,6 +70,16 @@ export default function EventPage() {
       toast.success(role ? `Marked as ${role}.` : "Removed.");
       refresh();
     },
+    onError,
+  });
+  const autopilot = useMutation({
+    mutationFn: (enabled: boolean) => api.post(`/events/${id}/autopilot`, { enabled }),
+    onSuccess: (_, on) => { toast.success(on ? "Agents may now act for you if a performer cancels." : "Agents will only propose; nothing happens without a coordinator."); refresh(); },
+    onError,
+  });
+  const reportCancel = useMutation({
+    mutationFn: () => api.post<any>(`/events/${id}/cancel-performance`, { reason: "Reported by the organiser" }),
+    onSuccess: (r) => { toast.success(r.executed?.length ? `Your agents acted: ${r.executed.length} action(s) done on your behalf.` : "Agents analysed it and proposed actions for a coordinator."); refresh(); qc.invalidateQueries({ queryKey: ["notifications"] }); },
     onError,
   });
   const invitation = useMutation({
@@ -135,6 +146,21 @@ export default function EventPage() {
             </div>
           </dl>
           <p className="mt-6 whitespace-pre-line text-[16px] leading-relaxed">{e.description}</p>
+          {e.is_organizer && e.performers.length > 0 && (
+            <div className="mt-6 rounded-xl border border-violet/30 bg-violet-50/60 p-5">
+              <p className="flex items-center gap-2 text-[15px] font-semibold text-violet"><Bot className="size-5" /> Organiser controls</p>
+              <label className="mt-3 flex items-start justify-between gap-6">
+                <span className="text-[13.5px]">Let CityPulse agents act for me if a booked performer cancels
+                  <span className="block text-[12.5px] text-slate">They'll find and invite nearby artists who are free, tell your attendees, and notify you of everything they do.</span></span>
+                <Switch checked={!!e.agent_autopilot} onCheckedChange={(v) => autopilot.mutate(v)} />
+              </label>
+              {e.performers.some((p) => p.status === "confirmed") && (
+                <Button className="mt-4" variant="danger" loading={reportCancel.isPending} onClick={() => confirm("Report that your booked performer has cancelled? Attendees will be notified and the agents will start looking for a replacement.") && reportCancel.mutate()}>
+                  A booked performer has cancelled
+                </Button>
+              )}
+            </div>
+          )}
           {e.performer_gap && (
             <div className="mt-6 flex gap-3 rounded-xl border border-amber/40 bg-amber-50 p-4">
               <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber" />

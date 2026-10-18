@@ -1,6 +1,6 @@
 // Query G — Replacement-performer candidates for an event whose booked performer cancelled.
 // Multi-hop evidence per candidate: shares a discipline (Profession) with the cancelled performer, lives within
-// the search radius, belongs to the same artistic family (music / visual / performance) as the cancelled performer, explicitly opted in to fill-in gigs, is not already featured/invited, and — via a
+// the search radius, belongs to the same artistic family (music / visual / performance) as the cancelled performer, explicitly opted in to fill-in gigs, is not already featured, has no pending invitation and has not declined, and — via a
 // (Event)-[:FEATURES]->(Resident) traversal — has no confirmed booking that overlaps this event's time window.
 // Names are returned only for residents who opted into a public, named profile.
 // Params: $event_id, $radius_m
@@ -11,7 +11,8 @@ MATCH (c:Resident)-[:PRACTICES]->(p:Profession {category:'artist'})
 WHERE c.open_to_gigs = true
   AND distance(c.location, e.location) < $radius_m
   AND NOT (e)-[:FEATURES]->(c)
-  AND NOT (e)-[:INVITED]->(c)
+  AND NOT (e)-[:INVITED {status:'pending'}]->(c)
+  AND NOT (e)-[:INVITED {status:'declined'}]->(c)   // closed invitations (position was filled) may be re-invited in a later round
 OPTIONAL MATCH (c)<-[:FEATURES {status:'confirmed'}]-(o:Event)
 WHERE o.event_id <> e.event_id AND o.start_time < e.end_time AND o.end_time > e.start_time
 WITH e, c, p, gone_professions, gone_families,

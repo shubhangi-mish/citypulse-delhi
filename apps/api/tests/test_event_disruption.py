@@ -97,6 +97,11 @@ def test_cancellation_agents_invite_ranked_artists_and_close_the_loop(graph):
     # a second invitee can no longer accept: the loop is closed
     assert painter.post(f"/api/v1/events/{eid}/invitation", json={"accept": True}).status_code == 404
 
+    # replay on the same event: the replacement cancels too -> the painter (whose invitation was closed) is invited again
+    again = vocalist.post(f"/api/v1/events/{eid}/cancel-performance", json={"reason": "Double-booked"}).json()
+    assert [c["name"] for c in again["candidates"]["eligible"]] == ["Painter Fixture"]
+    assert painter.post(f"/api/v1/events/{eid}/invitation", json={"accept": True}).json()["accepted"]
+
 
 def test_without_autopilot_agents_only_propose(graph):
     start = int(time.time() * 1000) + 72 * HOUR

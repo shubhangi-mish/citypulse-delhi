@@ -151,12 +151,11 @@ def invite(graph: GraphClient, db: Session, event_id: str, candidates: list[dict
             """
             MATCH (e:Event {event_id:$eid}), (r:Resident {resident_id:$rid})
             MERGE (e)-[i:INVITED]->(r)
-            ON CREATE SET i.status = 'pending', i.created_at = $now, i.action_id = $aid, i.score = $score,
-                          i.reasons = $reasons
+            SET i.status = 'pending', i.created_at = $now, i.action_id = $aid, i.score = $score, i.reasons = $reasons
             """, {"eid": event_id, "rid": c["resident_id"], "now": now, "aid": action_id, "score": c.get("score"),
                   "reasons": c.get("reasons", [])})
         sent += notifications.notify(db, [c["resident_id"]], kind="replacement_invite", entity_id=event_id,
-                                     message=message, dedupe_key=f"invite:{event_id}:{c['resident_id']}")
+                                     message=message, dedupe_key=f"invite:{event_id}:{c['resident_id']}:{action_id}")
     return sent
 
 

@@ -84,6 +84,8 @@ export default function EventPage() {
     onError,
   });
   const [performerQ, setPerformerQ] = useState("");
+  const [askCant, setAskCant] = useState(false);
+  const [askReport, setAskReport] = useState(false);
   const artists = useQuery({
     queryKey: ["performer-search", id, performerQ],
     queryFn: () => api.get<{ items: { resident_id: string; name: string; profession: string; neighborhood: string | null }[] }>(`/events/${id}/performer-search`, { q: performerQ }),
@@ -167,7 +169,17 @@ export default function EventPage() {
             <div className="mt-6 rounded-xl border border-violet/30 bg-violet-50/60 p-5">
               <p className="flex items-center gap-2 text-[15px] font-semibold text-violet"><Mic2 className="size-5" /> You're performing at this event</p>
               <p className="mt-1 text-[13.5px] text-slate">If your plans change, tell everyone as early as you can: attendees are notified and nearby artists are invited to step in.</p>
-              <Button className="mt-3" variant="outline" loading={cantMakeIt.isPending} onClick={() => confirm("Tell the organiser and attendees that you can't perform?") && cantMakeIt.mutate()}>I can't make it anymore</Button>
+              {!askCant ? (
+                <Button className="mt-3" variant="outline" onClick={() => setAskCant(true)}>I can't make it anymore</Button>
+              ) : (
+                <div className="mt-3 rounded-lg border border-critical/30 bg-critical-50 p-3">
+                  <p className="text-[13.5px]">Tell the organiser and attendees that you can't perform?</p>
+                  <div className="mt-2 flex gap-2">
+                    <Button variant="danger" size="sm" loading={cantMakeIt.isPending} onClick={() => cantMakeIt.mutate(undefined, { onSettled: () => setAskCant(false) })}>Yes, I can't make it</Button>
+                    <Button variant="ghost" size="sm" onClick={() => setAskCant(false)}>Keep me on</Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           {e.is_organizer && (
@@ -195,9 +207,17 @@ export default function EventPage() {
                 <Switch checked={!!e.agent_autopilot} onCheckedChange={(v) => autopilot.mutate(v)} />
               </label>
               {e.performers.some((p) => p.status === "confirmed") && (
-                <Button className="mt-4" variant="danger" loading={reportCancel.isPending} onClick={() => confirm("Report that your booked performer has cancelled? Attendees will be notified and the agents will start looking for a replacement.") && reportCancel.mutate()}>
-                  A booked performer has cancelled
-                </Button>
+                !askReport ? (
+                  <Button className="mt-4" variant="danger" onClick={() => setAskReport(true)}>A booked performer has cancelled</Button>
+                ) : (
+                  <div className="mt-4 rounded-lg border border-critical/30 bg-critical-50 p-3">
+                    <p className="text-[13.5px]">Report the cancellation? Attendees are notified and the agents start looking for a replacement.</p>
+                    <div className="mt-2 flex gap-2">
+                      <Button variant="danger" size="sm" loading={reportCancel.isPending} onClick={() => reportCancel.mutate(undefined, { onSettled: () => setAskReport(false) })}>Yes, report it</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setAskReport(false)}>Not yet</Button>
+                    </div>
+                  </div>
+                )
               )}
             </div>
           )}

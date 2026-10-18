@@ -24,7 +24,7 @@ RELATED_WINDOW_MS = 120 * 24 * 3600 * 1000
 
 def create(graph: GraphClient, resident_id: str, *, category: str, title: str, description: str,
            latitude: float, longitude: float, precision: str, anonymous: bool,
-           concerns_asset_id: str | None = None) -> dict:
+           concerns_asset_id: str | None = None, event_id: str | None = None) -> dict:
     iid = new_id("iss")
     now = now_ms()
     nbh = places.nearest_neighborhood(graph, latitude, longitude)
@@ -61,7 +61,29 @@ def create(graph: GraphClient, resident_id: str, *, category: str, title: str, d
         )
     record_history(graph, iid, "Report submitted to the CityPulse community.")
     link_duplicates(graph, iid)
+    if event_id:
+        link_event(graph, iid, event_id)
     return {"issue_id": iid}
+
+
+def link_event(graph: GraphClient, issue_id: str, event_id: str) -> None:
+    """A complaint about an event: (Issue)-[:ABOUT_EVENT]->(Event), and if agents/coordinators are already working on
+    that event (an open disruption case) the complaint joins the case."""
+    now = now_ms()
+    row = graph.one("MATCH (i:Issue {issue_id:$i}), (e:Event {event_id:$e}) MERGE (i)-[:ABOUT_EVENT {created_at:$now}]->(e) "
+                    "RETURN e.title AS title", {"i": issue_id, "e": event_id, "now": now})
+    if not row:
+        return
+    joined = graph.one(
+        """
+        MATCH (i:Issue {issue_id:$i}), (e:Event {event_id:$e})
+        MATCH (c:CoordinationCase)-[:ADDRESSES]->(e) WHERE c.status IN ['open', 'in_progress']
+        MERGE (c)-[:ADDRESSES {created_at:$now}]->(i)
+        SET i.status = 'coordination_in_progress', i.updated_at = $now
+        RETURN c.title AS title
+        """, {"i": issue_id, "e": event_id, "now": now})
+    record_history(graph, issue_id, f"Linked to the event “{row['title']}”"
+                   + (f" and added to the coordination case “{joined['title']}”." if joined else "."))
 
 
 def related(graph: GraphClient, issue_id: str, radius_m: int = 1500) -> list[dict]:
@@ -204,6 +226,9 @@ def detail(graph: GraphClient, issue_id: str, viewer_id: str | None) -> dict | N
         for x in issue["discussion"]
     ]
 
+    issue["about_event"] = graph.one(
+        "MATCH (:Issue {issue_id:$id})-[:ABOUT_EVENT]->(e:Event) RETURN e.event_id AS event_id, e.title AS title",
+        {"id": issue_id}, readonly=True)
     issue["related"] = related(graph, issue_id)
     issue["related_query_id"] = query_id("related_issues")
     issue["network"] = graph.one(Q("coordination_network"), {"issue_id": issue_id}, readonly=True)

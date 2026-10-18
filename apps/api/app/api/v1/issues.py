@@ -28,7 +28,7 @@ def create_issue(body: IssueCreate, resident_id: str = Depends(require_resident)
     created = issues.create(graph, resident_id, category=body.category, title=body.title,
                             description=body.description, latitude=body.latitude, longitude=body.longitude,
                             precision=body.precision, anonymous=body.anonymous,
-                            concerns_asset_id=body.concerns_asset_id)
+                            concerns_asset_id=body.concerns_asset_id, event_id=body.event_id)
     return {**created, "message": "Submitted to the CityPulse community. This does not file a complaint with any "
                                   "government department."}
 

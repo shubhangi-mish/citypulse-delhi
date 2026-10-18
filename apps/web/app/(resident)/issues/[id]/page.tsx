@@ -57,6 +57,7 @@ interface IssueDetail {
   discussion: { discussion_id: string; body: string; created_at: number; kind: string; author: string | null; mine: boolean }[];
   related: Related[];
   related_query_id: string;
+  about_event?: { event_id: string; title: string } | null;
   network: {
     supporter_count: number;
     named_supporters: string[];
@@ -151,6 +152,9 @@ function IssuePage() {
             {i.road && <> · {i.road}</>}
           </p>
 
+          {i.about_event && (
+            <p className="mt-4 text-[14px]">About the event: <Link className="font-medium text-teal-600 hover:underline" href={`/events/${i.about_event.event_id}`}>{i.about_event.title}</Link></p>
+          )}
           <p className="mt-6 whitespace-pre-line text-[16px] leading-relaxed">{i.description}</p>
 
           <div className="mt-6 flex flex-wrap gap-2">

@@ -54,6 +54,7 @@ export default function ReportPage() {
         precision,
         anonymous,
         concerns_asset_id: assetId,
+        event_id: typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("event") : null,
       }),
     onSuccess: (r) => {
       toast.success("Submitted to the CityPulse community.");

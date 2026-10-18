@@ -376,6 +376,9 @@ export default function EventPage() {
                 ))}
               </ul>
             )}
+            <Link href={`/report?event=${e.event_id}`} className="mt-4 flex items-center gap-1.5 text-[13px] font-medium text-teal-600 hover:underline">
+              <TriangleAlert className="size-4" /> Report a problem with this event
+            </Link>
             <Link href={`/connections?focus=${e.event_id}`} className="mt-4 flex items-center gap-1.5 text-[13px] font-medium text-teal-600 hover:underline">
               <Network className="size-4" /> See graph connections
             </Link>

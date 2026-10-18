@@ -173,3 +173,26 @@ def test_normal_accounts_no_demo_layer_organiser_books_performer_who_cancels_the
 
 def _private_id(graph):
     return graph.one("MATCH (r:Resident {name:'Private Normal'}) RETURN r.resident_id AS id")["id"]
+
+
+def test_complaint_about_an_event_joins_the_case_and_closes_when_solved(graph):
+    start = int(time.time() * 1000) + 144 * HOUR
+    org, _ = _person(graph, "Org Complaint", "Teacher", "org-c@example.com", 28.6330, 77.2150, gigs=False)
+    singer, singer_id = _person(graph, "Singer Complaint", "Rock singer", "sing-c@example.com", 28.6310, 77.2180, gigs=False)
+    sub, _ = _person(graph, "Sub Complaint", "Rock vocalist", "sub-c@example.com", 28.6400, 77.2100)
+    fan, _ = _person(graph, "Fan Complaint", "Accountant", "fan-c@example.com", 28.6320, 77.2160, gigs=False)
+    graph.query("MATCH (r:Resident) WHERE r.open_to_gigs = true AND r.name <> 'Sub Complaint' SET r.open_to_gigs = false")
+    eid = _event(org, "Fixture Complaint Night", start)
+    _feature(graph, eid, singer_id)
+    org.post(f"/api/v1/events/{eid}/autopilot", json={"enabled": True})
+    org.post(f"/api/v1/events/{eid}/cancel-performance", json={"reason": "Ill"})
+    r = fan.post("/api/v1/issues", json={"category": "other", "title": "The headliner pulled out of the night",
+                                         "description": "Many of us were coming for the singer; please find someone.",
+                                         "latitude": 28.6318, "longitude": 77.2171, "event_id": eid})
+    assert r.status_code == 201
+    iid = r.json()["issue_id"]
+    issue = fan.get(f"/api/v1/issues/{iid}").json()
+    assert issue["about_event"]["event_id"] == eid and issue["status"] == "coordination_in_progress"
+    assert any(c["title"].startswith("Replace cancelled performer") for c in issue["network"]["cases"])
+    assert sub.post(f"/api/v1/events/{eid}/invitation", json={"accept": True}).json()["accepted"]
+    assert fan.get(f"/api/v1/issues/{iid}").json()["status"] == "closed"     # solved: the complaint closes with the case

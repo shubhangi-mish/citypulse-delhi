@@ -58,6 +58,7 @@ class IssueCreate(Location):
     precision: Literal["approximate", "neighborhood"] = "approximate"
     anonymous: bool = False
     concerns_asset_id: str | None = Field(default=None, max_length=64)
+    event_id: str | None = Field(default=None, max_length=64, description="Report a problem with this event")
 
     @field_validator("category")
     @classmethod

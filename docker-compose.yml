@@ -1,0 +1,64 @@
+name: citypulse
+
+services:
+  falkordb:
+    image: falkordb/falkordb:latest
+    ports:
+      - "${FALKORDB_PORT:-6379}:6379"
+      # FalkorDB Browser (graph inspection UI). Bound to localhost only — never expose publicly.
+      - "127.0.0.1:${FALKORDB_BROWSER_PORT:-3001}:3000"
+    volumes:
+      - falkordb-data:/var/lib/falkordb/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: citypulse
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-citypulse_dev}
+      POSTGRES_DB: citypulse
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U citypulse"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file: .env
+    environment:
+      FALKORDB_HOST: falkordb
+      FALKORDB_PORT: 6379
+      DATABASE_URL: postgresql+psycopg://citypulse:${POSTGRES_PASSWORD:-citypulse_dev}@postgres:5432/citypulse
+    depends_on:
+      falkordb: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    ports:
+      - "8000:8000"
+
+  web:
+    profiles: ["app"]
+    build:
+      context: ./apps/web
+      args:
+        NEXT_PUBLIC_MAPBOX_TOKEN: ${NEXT_PUBLIC_MAPBOX_TOKEN:-}
+    environment:
+      API_INTERNAL_URL: http://api:8000
+    depends_on: [api]
+    ports:
+      - "3100:3000"
+
+volumes:
+  falkordb-data:
+  postgres-data:

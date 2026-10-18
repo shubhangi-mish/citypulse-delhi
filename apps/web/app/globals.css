@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display-serif), ui-serif, Georgia, serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --color-navy: #172b45;
+  --color-navy-800: #1f3a5c;
+  --color-navy-950: #0f1d30;
+  --color-teal: #157c83;
+  --color-teal-600: #116a70;
+  --color-teal-50: #e8f4f4;
+  --color-teal-100: #cfe8e9;
+  --color-paper: #f7f8f6;
+  --color-paper-2: #eff1ed;
+  --color-ink: #172b45;
+  --color-slate: #64748b;
+  --color-line: #e2e5df;
+  --color-line-strong: #cfd4cc;
+  --color-amber: #c98b31;
+  --color-amber-50: #fbf3e6;
+  --color-critical: #c74848;
+  --color-critical-50: #fbecec;
+  --color-positive: #27846b;
+  --color-positive-50: #e7f3ef;
+  --color-violet: #6d5bb8;
+  --color-violet-50: #f0eefa;
+
+  --radius-card: 14px;
+  --shadow-soft: 0 1px 2px rgb(23 43 69 / 0.04), 0 4px 16px -6px rgb(23 43 69 / 0.08);
+  --shadow-lift: 0 2px 4px rgb(23 43 69 / 0.05), 0 16px 40px -12px rgb(23 43 69 / 0.18);
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-paper text-ink font-sans;
+  }
+  ::selection {
+    background: var(--color-teal-100);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-teal);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+}
+
+@utility container-page {
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 1rem;
+  @media (min-width: 768px) {
+    padding-inline: 2rem;
+  }
+}
+
+@utility eyebrow {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--color-slate);
+}
+
+/* Mapbox popup/ctrl polish */
+.mapboxgl-ctrl-group {
+  border-radius: 10px !important;
+  box-shadow: var(--shadow-soft) !important;
+}
+.mapboxgl-ctrl-attrib {
+  font-size: 10px;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #eceee9 0%, #f4f5f2 50%, #eceee9 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}
